@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Take Attendance{% endblock %}
+{% block page_title %}Take Attendance{% endblock %}
+
+{% block content %}
+
+{% set eyebrow = "✓ Attendance" %}
+{% set title = "Take Attendance" %}
+{% set subtitle = "Pick a course, choose a date, then mark each student's status. Your selections are saved in one click." %}
+{% set primary_link = url_for('records') %}
+{% set primary_text = "View Records" %}
+{% set primary_icon = "📊" %}
+{% set secondary_link = url_for('students') %}
+{% set secondary_text = "Manage Students" %}
+{% set secondary_icon = "👥" %}
+{% set emoji = "✓" %}
+{% include "_hero.html" %}
+
+<div class="tabs">
+    <a class="tab" href="{{ url_for('dashboard') }}">Overview</a>
+    <a class="tab" href="{{ url_for('courses') }}">Courses</a>
+    <a class="tab" href="{{ url_for('students') }}">Students</a>
+    <a class="tab active" href="{{ url_for('attendance') }}">Attendance</a>
+    <a class="tab" href="{{ url_for('records') }}">Insights</a>
+</div>
+
+<form method="POST" id="attendanceForm">
+    <input type="hidden" name="course" value="{{ selected_course or '' }}">
+
+    <!-- Session setup -->
+    <div class="session-bar">
+        <div class="session-field">
+            <label class="sf-label">📚 Course</label>
+            <select name="course_select" onchange="document.location.href='{{ url_for('attendance') }}?course=' + this.value;">
+                {% for course in courses.keys() %}
+                <option value="{{ course }}" {% if course == selected_course %}selected{% endif %}>
+                    {{ course }} ({{ courses[course]|length }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="session-field">
+            <label class="sf-label">🗓 Date</label>
+            <input type="date" name="date" value="{{ today }}" required>
+        </div>
+
+        <div class="session-field session-summary">
+            <label class="sf-label">Summary</label>
+            <div class="session-stats">
+                <span class="ss-pill present" id="stat-present">0 Present</span>
+                <span class="ss-pill late" id="stat-late">0 Late</span>
+                <span class="ss-pill absent" id="stat-absent">0 Absent</span>
+                <span class="ss-pill excused" id="stat-excused">0 Excused</span>
+            </div>
+        </div>
+    </div>
+
+    {% if selected_course and selected_course in courses and courses[selected_course] %}
+
+    <!-- Student list -->
+    <div class="section-head">
+        <h2>📖 {{ selected_course }}</h2>
+        <span style="color: var(--text-dim); font-size: 13px;">
+            {{ courses[selected_course]|length }} student(s)
+        </span>
+    </div>
+
+    <div class="attend-list">
+        {% for student in courses[selected_course] %}
+        {% set field = "status_" ~ loop.index %}
+        {% set sid = selected_course ~ "_" ~ loop.index %}
+        <div class="attend-row" data-status="Present">
+            <div class="attend-student">
+                <div class="attend-avatar">{{ student[0] | upper }}</div>
+                <div class="attend-name">{{ student }}</div>
+            </div>
+
+            <div class="status-picker">
+                <label class="status-btn present">
+                    <input type="radio" name="{{ field }}" value="Present" checked
+                           onchange="updateRow(this, 'Present')">
+                    <span>✓ Present</span>
+                </label>
+                <label class="status-btn late">
+                    <input type="radio" name="{{ field }}" value="Late"
+                           onchange="updateRow(this, 'Late')">
+                    <span>⏰ Late</span>
+                </label>
+                <label class="status-btn absent">
+                    <input type="radio" name="{{ field }}" value="Absent"
+                           onchange="updateRow(this, 'Absent')">
+                    <span>✕ Absent</span>
+                </label>
+                <label class="status-btn excused">
+                    <input type="radio" name="{{ field }}" value="Excused"
+                           onchange="updateRow(this, 'Excused')">
+                    <span>📝 Excused</span>
+                </label>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Sticky save bar -->
+    <div class="save-bar">
+        <div class="save-bar-info">
+            <strong>{{ courses[selected_course]|length }}</strong> student(s) marked for
+            <strong>{{ selected_course }}</strong>
+        </div>
+        <button type="submit" class="btn btn-primary">💾 Save Attendance</button>
+    </div>
+
+    {% elif not courses %}
+
+    <div class="empty">
+        <div class="empty-icon">📚</div>
+        <h3>No courses yet</h3>
+        <p>Add a course first from the Courses page.</p>
+        <a href="{{ url_for('courses') }}" class="btn btn-primary"
+           style="margin-top: 16px; display: inline-block;">Manage Courses</a>
+    </div>
+
+    {% else %}
+
+    <div class="empty">
+        <div class="empty-icon">👥</div>
+        <h3>No students in {{ selected_course }}</h3>
+        <p>Enroll students first from the Students page.</p>
+        <a href="{{ url_for('students') }}" class="btn btn-primary"
+           style="margin-top: 16px; display: inline-block;">Manage Students</a>
+    </div>
+
+    {% endif %}
+</form>
+
+<script>
+function updateRow(input, status) {
+    const row = input.closest('.attend-row');
+    row.dataset.status = status;
+    updateSummary();
+}
+
+function updateSummary() {
+    const counts = { Present: 0, Late: 0, Absent: 0, Excused: 0 };
+    document.querySelectorAll('.attend-row').forEach(row => {
+        counts[row.dataset.status]++;
+    });
+    document.getElementById('stat-present').textContent = counts.Present + ' Present';
+    document.getElementById('stat-late').textContent    = counts.Late + ' Late';
+    document.getElementById('stat-absent').textContent  = counts.Absent + ' Absent';
+    document.getElementById('stat-excused').textContent = counts.Excused + ' Excused';
+}
+
+// Run once on load
+document.addEventListener('DOMContentLoaded', updateSummary);
+</script>
+
+{% endblock %}

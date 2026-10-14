@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+{% if total_sessions == 0 %}
+    {% set eyebrow = "👋 Welcome" %}
+    {% set subtitle = "You have <strong>" ~ total_courses ~ "</strong> course(s) and <strong>" ~ total_students ~ "</strong> student(s) enrolled. Ready to take your first attendance?" %}
+{% else %}
+    {% set eyebrow = "📊 Dashboard" %}
+    {% set subtitle = "You've recorded <strong>" ~ total_sessions ~ "</strong> session(s) so far with <strong>" ~ total_present ~ "</strong> present marks across <strong>" ~ total_courses ~ "</strong> course(s)." %}
+{% endif %}
+{% set title = "Welcome back, " ~ (session.instructor | capitalize) %}
+{% set primary_link = url_for('attendance') %}
+{% set primary_text = "Take Attendance" %}
+{% set primary_icon = "✓" %}
+{% set secondary_link = url_for('courses') %}
+{% set secondary_text = "Manage Courses" %}
+{% set secondary_icon = "📚" %}
+{% set emoji = "📍" %}
+{% include "_hero.html" %}
+
+<div class="tabs">
+    <a class="tab active" href="{{ url_for('dashboard') }}">Overview</a>
+    <a class="tab" href="{{ url_for('courses') }}">Courses</a>
+    <a class="tab" href="{{ url_for('students') }}">Students</a>
+    <a class="tab" href="{{ url_for('records') }}">Insights</a>
+</div>
+
+<div class="dashboard-layout">
+
+    <!-- ===== LEFT COLUMN ===== -->
+    <div>
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-head">
+                    <span>Total Courses</span>
+                    <span class="delta">+{{ total_courses }}</span>
+                </div>
+                <div class="stat-body">
+                    <div class="stat-value">{{ total_courses }}</div>
+                    <div class="sparkline">
+                        <div class="bar" style="height: 40%"></div>
+                        <div class="bar" style="height: 65%"></div>
+                        <div class="bar" style="height: 50%"></div>
+                        <div class="bar" style="height: 80%"></div>
+                        <div class="bar" style="height: 100%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-head">
+                    <span>Present Marks</span>
+                    <span class="delta">+{{ total_present }}</span>
+                </div>
+                <div class="stat-body">
+                    <div class="stat-value">{{ total_present }}</div>
+                    <div class="sparkline">
+                        <div class="bar" style="height: 60%"></div>
+                        <div class="bar" style="height: 45%"></div>
+                        <div class="bar" style="height: 75%"></div>
+                        <div class="bar" style="height: 90%"></div>
+                        <div class="bar" style="height: 70%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-head">
+                    <span>Total Students</span>
+                </div>
+                <div class="stat-body">
+                    <div class="stat-value">{{ total_students }}</div>
+                    <div class="avatar-stack">
+                        {% for course, students in courses.items() %}
+                            {% for s in students[:1] %}
+                            <div class="av">{{ s[0] | upper }}</div>
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-head">
+            <h2>Today's Classes</h2>
+            <a href="{{ url_for('courses') }}" class="view-all">View all</a>
+        </div>
+
+        <div class="class-list">
+            {% for course, students in courses.items() %}
+            <a href="{{ url_for('attendance') }}?course={{ course }}" class="class-card">
+                <div class="cc-top">
+                    <div class="left">⏱ Ready to take attendance</div>
+                    <div class="right">
+                        <span>👥 {{ students|length }}</span>
+                    </div>
+                </div>
+
+                <div class="cc-title">{{ course }} — Attendance Session</div>
+
+                <div class="cc-bottom">
+                    <div class="tag-row">
+                        {% if students|length > 3 %}
+                            <span class="tag red">High</span>
+                        {% else %}
+                            <span class="tag yellow">Medium</span>
+                        {% endif %}
+                        <span class="tag blue"><span class="dot"></span> Pending</span>
+                        <span class="tag neutral">{{ course }}</span>
+                    </div>
+
+                    <div class="avatar-stack">
+                        {% for s in students[:3] %}
+                        <div class="av">{{ s[0] | upper }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </a>
+            {% else %}
+            <div class="empty">
+                <div class="empty-icon">📚</div>
+                <h3>No courses yet</h3>
+                <p>Add your first course to get started.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- ===== RIGHT SIDE PANEL ===== -->
+    <aside class="side-panel">
+
+        <!-- CALENDAR WIDGET -->
+        <div class="panel-card calendar-card" id="calendar">
+            <div class="cal-header">
+                <button class="cal-nav" onclick="calPrev()" title="Previous month">‹</button>
+                <div class="cal-title" id="calTitle">Month Year</div>
+                <button class="cal-nav" onclick="calNext()" title="Next month">›</button>
+            </div>
+
+            <div class="cal-weekdays">
+                <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+            </div>
+
+            <div class="cal-grid" id="calGrid"></div>
+
+            <div class="cal-footer">
+                <div class="cal-selected" id="calSelected">Click a date to add reminder</div>
+                <button class="cal-today-btn" onclick="calToday()">Today</button>
+            </div>
+
+            <!-- Reminder composer (hidden by default) -->
+            <form method="POST" action="{{ url_for('reminders_add') }}" class="reminder-form" id="reminderForm">
+                <input type="hidden" name="date" id="reminderDate">
+                <div class="reminder-form-head">
+                    <span id="reminderDateLabel">Add reminder</span>
+                    <button type="button" class="reminder-close" onclick="closeReminderForm()">✕</button>
+                </div>
+
+                <input type="text" name="title" placeholder="Reminder title (e.g. BSIT 1-A quiz)" required maxlength="80">
+                <input type="text" name="note" placeholder="Optional note" maxlength="140">
+
+                <div class="reminder-colors">
+                    <label class="rc"><input type="radio" name="color" value="purple" checked><span class="rc-dot purple"></span></label>
+                    <label class="rc"><input type="radio" name="color" value="green"><span class="rc-dot green"></span></label>
+                    <label class="rc"><input type="radio" name="color" value="yellow"><span class="rc-dot yellow"></span></label>
+                    <label class="rc"><input type="radio" name="color" value="red"><span class="rc-dot red"></span></label>
+                    <label class="rc"><input type="radio" name="color" value="blue"><span class="rc-dot blue"></span></label>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-sm" style="width: 100%;">💾 Save Reminder</button>
+            </form>
+        </div>
+
+        <!-- UPCOMING REMINDERS LIST -->
+        {% set active = reminders|selectattr('done', 'equalto', false)|list %}
+        {% if active %}
+        <div class="panel-card" id="remindersList">
+            <div class="section-head" style="margin: 0 0 10px;">
+                <h3 style="font-size: 13px;">Upcoming Reminders</h3>
+                <span style="color: var(--text-dim); font-size: 11.5px;">{{ active|length }} active</span>
+            </div>
+
+            <div class="reminder-list">
+                {% for r in reminders|sort(attribute='date') %}
+                {% if not r.done %}
+                <div class="reminder-item color-{{ r.color }}">
+                    <div class="ri-dot"></div>
+                    <div class="ri-body">
+                        <div class="ri-title">{{ r.title }}</div>
+                        <div class="ri-meta">
+                            {{ r.date }}{% if r.note %} · {{ r.note }}{% endif %}
+                        </div>
+                    </div>
+                    <form method="POST" action="{{ url_for('reminders_toggle', rid=r.id) }}" style="margin: 0;">
+                        <button type="submit" class="ri-btn" title="Mark done">✓</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('reminders_delete', rid=r.id) }}" style="margin: 0;"
+                          onsubmit="return confirm('Delete this reminder?');">
+                        <button type="submit" class="ri-btn danger" title="Delete">🗑</button>
+                    </form>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Class Roster -->
+        <div class="panel-card">
+            <h3>Class Roster</h3>
+            {% for course, students in courses.items() %}
+                {% for s in students %}
+                <div class="person-row">
+                    <div class="av online">{{ s[0] | upper }}</div>
+                    <div class="info">
+                        <div class="name">{{ s }}</div>
+                        <div class="meta">{{ course }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: var(--text-dim); font-size: 12.5px;">No students yet.</p>
+            {% endfor %}
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="panel-card">
+            <h3>Recent Activity</h3>
+            {% if records %}
+                {% for rec in records[:3] %}
+                <div class="mention">
+                    <div class="who">
+                        <div class="av">{{ rec.course[0] | upper }}</div>
+                        <span>{{ rec.course }}</span>
+                    </div>
+                    Session on {{ rec.date }} — {{ rec.students|length }} students marked.
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: var(--text-dim); font-size: 12.5px;">No sessions recorded yet.</p>
+            {% endif %}
+        </div>
+    </aside>
+
+</div>
+
+<!-- REMINDERS DATA (injected from Flask) -->
+<script id="reminders-data" type="application/json">
+[{% for r in reminders %}{% if not r.done %}{"id": {{ r.id }}, "date": "{{ r.date }}", "title": {{ r.title|tojson }}, "color": "{{ r.color }}"}{% if not loop.last %},{% endif %}{% endif %}{% endfor %}]
+</script>
+
+<!-- CALENDAR SCRIPT -->
+<script>
+(function() {
+    const grid = document.getElementById('calGrid');
+    const title = document.getElementById('calTitle');
+    const selectedLabel = document.getElementById('calSelected');
+    const reminderForm = document.getElementById('reminderForm');
+    const reminderDate = document.getElementById('reminderDate');
+    const reminderDateLabel = document.getElementById('reminderDateLabel');
+
+    const reminders = JSON.parse(document.getElementById('reminders-data').textContent);
+
+    // Group reminders by date for fast lookup
+    const remindersByDate = {};
+    reminders.forEach(r => {
+        (remindersByDate[r.date] = remindersByDate[r.date] || []).push(r);
+    });
+
+    let today = new Date();
+    let viewYear = today.getFullYear();
+    let viewMonth = today.getMonth();
+    let selectedDate = null;
+
+    const MONTHS = ['January','February','March','April','May','June',
+                    'July','August','September','October','November','December'];
+
+    const pad = n => String(n).padStart(2, '0');
+    const isoDate = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
+
+    function render() {
+        title.textContent = MONTHS[viewMonth] + ' ' + viewYear;
+        grid.innerHTML = '';
+
+        const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+        const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const daysInPrev = new Date(viewYear, viewMonth, 0).getDate();
+
+        // Previous month trailing days
+        for (let i = firstDay - 1; i >= 0; i--) {
+            const d = daysInPrev - i;
+            grid.appendChild(makeCell(d, true, false, false, null));
+        }
+
+        // Current month
+        for (let d = 1; d <= daysInMonth; d++) {
+            const isToday =
+                d === today.getDate() &&
+                viewMonth === today.getMonth() &&
+                viewYear === today.getFullYear();
+            const isSelected = selectedDate &&
+                d === selectedDate.d &&
+                viewMonth === selectedDate.m &&
+                viewYear === selectedDate.y;
+
+            const dateKey = isoDate(viewYear, viewMonth, d);
+            grid.appendChild(makeCell(d, false, isToday, isSelected, dateKey));
+        }
+
+        // Next month leading days
+        const total = firstDay + daysInMonth;
+        const remaining = (7 - (total % 7)) % 7;
+        for (let d = 1; d <= remaining; d++) {
+            grid.appendChild(makeCell(d, true, false, false, null));
+        }
+    }
+
+    function makeCell(day, isMuted, isToday, isSelected, dateKey) {
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'cal-day';
+        cell.textContent = day;
+
+        if (isMuted) cell.classList.add('muted');
+        if (isToday) cell.classList.add('today');
+        if (isSelected) cell.classList.add('selected');
+
+        // Reminder dots
+        if (dateKey && remindersByDate[dateKey]) {
+            cell.classList.add('has-reminder');
+            const dots = document.createElement('div');
+            dots.className = 'cal-dots';
+            const colors = [...new Set(remindersByDate[dateKey].map(r => r.color))].slice(0, 3);
+            colors.forEach(c => {
+                const dot = document.createElement('span');
+                dot.className = 'cal-dot ' + c;
+                dots.appendChild(dot);
+            });
+            cell.appendChild(dots);
+        }
+
+        if (!isMuted) {
+            cell.addEventListener('click', () => {
+                selectedDate = { d: day, m: viewMonth, y: viewYear };
+                const iso = isoDate(viewYear, viewMonth, day);
+                selectedLabel.textContent =
+                    MONTHS[viewMonth].slice(0, 3) + ' ' + day + ', ' + viewYear;
+
+                // Show reminder composer
+                reminderDate.value = iso;
+                reminderDateLabel.textContent =
+                    'New reminder · ' + MONTHS[viewMonth].slice(0, 3) + ' ' + day + ', ' + viewYear;
+                reminderForm.classList.add('active');
+                reminderForm.querySelector('input[name="title"]').focus();
+
+                render();
+            });
+        } else {
+            cell.disabled = true;
+        }
+
+        return cell;
+    }
+
+    window.calPrev = function() {
+        viewMonth--;
+        if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+        render();
+    };
+
+    window.calNext = function() {
+        viewMonth++;
+        if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+        render();
+    };
+
+    window.calToday = function() {
+        viewYear = today.getFullYear();
+        viewMonth = today.getMonth();
+        render();
+    };
+
+    window.closeReminderForm = function() {
+        reminderForm.classList.remove('active');
+        reminderForm.reset();
+    };
+
+    render();
+})();
+</script>
+
+{% endblock %}

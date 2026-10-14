@@ -1,0 +1,28 @@
+<section class="hero">
+    <div class="hero-left">
+        <span class="hero-eyebrow">{{ eyebrow }}</span>
+        <h1 class="hero-title">{{ title }}</h1>
+        <p class="hero-subtitle">{{ subtitle | safe }}</p>
+
+        {% if primary_link %}
+        <div class="hero-actions">
+            <a href="{{ primary_link }}" class="btn btn-primary">
+                {{ primary_icon }} {{ primary_text }}
+            </a>
+            {% if secondary_link %}
+            <a href="{{ secondary_link }}" class="btn btn-ghost">
+                {{ secondary_icon }} {{ secondary_text }}
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="hero-right">
+        <div class="hero-illustration">
+            <div class="hero-circle c1"></div>
+            <div class="hero-circle c2"></div>
+            <div class="hero-emoji">{{ emoji }}</div>
+        </div>
+    </div>
+</section>

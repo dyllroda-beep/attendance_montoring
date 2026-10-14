@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Records{% endblock %}
+{% block page_title %}Attendance Records{% endblock %}
+
+{% block content %}
+
+{% if records %}
+    {% set subtitle = "You have <strong>" ~ records|length ~ "</strong> session(s) saved. Click any card to view student-level details." %}
+{% else %}
+    {% set subtitle = "No sessions recorded yet. Take your first attendance to see records here." %}
+{% endif %}
+{% set eyebrow = "📊 Insights" %}
+{% set title = "Attendance Records" %}
+{% set primary_link = url_for('attendance') %}
+{% set primary_text = "Take Attendance" %}
+{% set primary_icon = "✓" %}
+{% set secondary_link = url_for('dashboard') %}
+{% set secondary_text = "Back to Dashboard" %}
+{% set secondary_icon = "▦" %}
+{% set emoji = "📊" %}
+{% include "_hero.html" %}
+
+<div class="tabs">
+    <a class="tab" href="{{ url_for('dashboard') }}">Overview</a>
+    <a class="tab" href="{{ url_for('courses') }}">Courses</a>
+    <a class="tab" href="{{ url_for('students') }}">Students</a>
+    <a class="tab" href="{{ url_for('attendance') }}">Attendance</a>
+    <a class="tab active" href="{{ url_for('records') }}">Insights</a>
+</div>
+
+{% if records %}
+
+    <div class="section-head">
+        <h2>Sessions</h2>
+        <span style="color: var(--text-dim); font-size: 13px;">
+            {{ records|length }} total
+        </span>
+    </div>
+
+    <div class="class-list" style="margin-bottom: 32px;">
+        {% for rec in records %}
+        <div class="class-card" style="cursor: default;">
+            <div class="cc-top">
+                <div class="left">📅 {{ rec.date }}</div>
+                <div class="right">
+                    <span>👥 {{ rec.students|length }} students</span>
+                </div>
+            </div>
+
+            <div class="cc-title">{{ rec.course }}</div>
+
+            <div class="tag-row">
+                {% set present = rec.students.values() | select('equalto', 'Present') | list | length %}
+                {% set late = rec.students.values() | select('equalto', 'Late') | list | length %}
+                {% set absent = rec.students.values() | select('equalto', 'Absent') | list | length %}
+                {% set excused = rec.students.values() | select('equalto', 'Excused') | list | length %}
+
+                {% if present %}
+                <span class="tag green"><span class="dot"></span> Present {{ present }}</span>
+                {% endif %}
+                {% if late %}
+                <span class="tag yellow"><span class="dot"></span> Late {{ late }}</span>
+                {% endif %}
+                {% if absent %}
+                <span class="tag red"><span class="dot"></span> Absent {{ absent }}</span>
+                {% endif %}
+                {% if excused %}
+                <span class="tag blue"><span class="dot"></span> Excused {{ excused }}</span>
+                {% endif %}
+            </div>
+
+            <details style="margin-top: 10px;">
+                <summary style="cursor: pointer; color: var(--text-soft); font-size: 12.5px;">
+                    Show students
+                </summary>
+                <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px;">
+                    {% for student, status in rec.students.items() %}
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px;">
+                        <span>{{ student }}</span>
+                        <span class="badge {{ status|lower }}">{{ status }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="section-head">
+        <h2>📈 Per-Student Summary</h2>
+    </div>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Student</th>
+                <th>Course</th>
+                <th style="text-align:center;">Present</th>
+                <th style="text-align:center;">Late</th>
+                <th style="text-align:center;">Absent</th>
+                <th style="text-align:center;">Excused</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for (course, student), c in summary.items() %}
+            <tr>
+                <td><strong>{{ student }}</strong></td>
+                <td><span class="tag neutral">{{ course }}</span></td>
+                <td style="text-align:center;">{{ c.Present }}</td>
+                <td style="text-align:center;">{{ c.Late }}</td>
+                <td style="text-align:center;">{{ c.Absent }}</td>
+                <td style="text-align:center;">{{ c.Excused }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+{% else %}
+
+<div class="empty">
+    <div class="empty-icon">📭</div>
+    <h3>No records yet</h3>
+    <p>Start by taking attendance for a class.</p>
+    <a href="{{ url_for('attendance') }}" class="btn btn-primary"
+       style="margin-top: 16px; display: inline-block;">
+        Take Attendance
+    </a>
+</div>
+
+{% endif %}
+{% endblock %}

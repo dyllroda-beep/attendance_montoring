@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% block title %}Courses{% endblock %}
+{% block page_title %}Courses{% endblock %}
+
+{% block content %}
+
+{% set eyebrow = "📚 Course Management" %}
+{% set title = "Your Courses" %}
+{% set subtitle = "You currently have <strong>" ~ courses|length ~ "</strong> course(s) with <strong>" ~ (courses.values() | map('length') | sum) ~ "</strong> enrolled student(s). Click any card to see details." %}
+{% set primary_link = url_for('attendance') %}
+{% set primary_text = "Take Attendance" %}
+{% set primary_icon = "✓" %}
+{% set secondary_link = url_for('students') %}
+{% set secondary_text = "Manage Students" %}
+{% set secondary_icon = "👥" %}
+{% set emoji = "📚" %}
+{% include "_hero.html" %}
+
+<div class="tabs">
+    <a class="tab" href="{{ url_for('dashboard') }}">Overview</a>
+    <a class="tab active" href="{{ url_for('courses') }}">Courses</a>
+    <a class="tab" href="{{ url_for('students') }}">Students</a>
+    <a class="tab" href="{{ url_for('records') }}">Insights</a>
+</div>
+
+<!-- Add Course -->
+<div class="form-card">
+    <h3>➕ Add New Course</h3>
+    <form method="POST" class="row">
+        <input type="hidden" name="action" value="add">
+        <input type="text" name="course_name" placeholder="e.g. BSIT 2-A" required>
+        <button type="submit" class="btn btn-primary">Add Course</button>
+    </form>
+</div>
+
+<div class="section-head">
+    <h2>All Courses</h2>
+    <span style="color: var(--text-dim); font-size: 13px;">{{ courses|length }} total</span>
+</div>
+
+<!-- Course card grid -->
+<div class="course-grid">
+    {% for course, students in courses.items() %}
+    {% set att = course_attendance.get(course, {}) %}
+    {% set sessions_count = course_sessions.get(course, 0) %}
+    {% set last_date = course_last_date.get(course) %}
+
+    <div class="course-tile" data-course="{{ course }}" onclick="openCourseModal('{{ loop.index }}')">
+        <div class="ct-header">
+            <div class="ct-icon">{{ course[0] | upper }}</div>
+            <div class="ct-title-block">
+                <div class="ct-name">{{ course }}</div>
+                <div class="ct-meta">
+                    {{ students|length }} student(s)
+                    {% if sessions_count %} · {{ sessions_count }} session(s){% endif %}
+                </div>
+            </div>
+
+            {% if students|length == 0 %}
+                <span class="status-badge empty">○ Empty</span>
+            {% elif students|length < 3 %}
+                <span class="status-badge low">◐ Small</span>
+            {% elif students|length <= 6 %}
+                <span class="status-badge active">● Active</span>
+            {% else %}
+                <span class="status-badge full">● Full</span>
+            {% endif %}
+        </div>
+
+        <div class="ct-avatars">
+            <div class="avatar-stack">
+                {% for s in students[:4] %}
+                <div class="av">{{ s[0] | upper }}</div>
+                {% endfor %}
+                {% if students|length > 4 %}
+                <div class="av av-more">+{{ students|length - 4 }}</div>
+                {% endif %}
+                {% if students|length == 0 %}
+                <span class="ct-empty">Empty</span>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if att and att.rate is defined %}
+        <div class="ct-rate">
+            <div class="ctr-bar">
+                <div class="ctr-fill" style="width: {{ att.rate }}%"></div>
+            </div>
+            <span class="ctr-label">{{ att.rate }}% attendance</span>
+        </div>
+        {% endif %}
+
+        <div class="ct-arrow">View details →</div>
+    </div>
+
+    <!-- MODAL -->
+    <div class="modal-overlay" id="course-modal-{{ loop.index }}" onclick="closeCourseModal(event, '{{ loop.index }}')">
+        <div class="modal modal-lg" onclick="event.stopPropagation();">
+
+            <!-- Header -->
+            <div class="modal-header">
+                <div class="mh-left">
+                    <div class="mh-icon">{{ course[0] | upper }}</div>
+                    <div>
+                        <div class="mh-title-row">
+                            <h2 class="mh-title">{{ course }}</h2>
+
+                            {% if students|length == 0 %}
+                                <span class="status-badge empty">○ Empty</span>
+                            {% elif students|length < 3 %}
+                                <span class="status-badge low">◐ Small</span>
+                            {% elif students|length <= 6 %}
+                                <span class="status-badge active">● Active</span>
+                            {% else %}
+                                <span class="status-badge full">● Full</span>
+                            {% endif %}
+                        </div>
+                        <p class="mh-sub">
+                            {{ students|length }} student(s) enrolled
+                            {% if sessions_count %}
+                                · {{ sessions_count }} session(s) recorded
+                            {% else %}
+                                · No sessions yet
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeCourseModal(event, '{{ loop.index }}')">✕</button>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body">
+
+                <!-- Quick stats -->
+                <div class="modal-stats">
+                    <div class="ms-card">
+                        <div class="ms-label">Students</div>
+                        <div class="ms-value">{{ students|length }}</div>
+                    </div>
+                    <div class="ms-card">
+                        <div class="ms-label">Sessions</div>
+                        <div class="ms-value">{{ sessions_count }}</div>
+                    </div>
+                    <div class="ms-card">
+                        <div class="ms-label">Attendance</div>
+                        <div class="ms-value">
+                            {% if att and att.rate is defined %}
+                                {{ att.rate }}%
+                            {% else %}
+                                —
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="ms-card">
+                        <div class="ms-label">Last Session</div>
+                        <div class="ms-value ms-value-sm">
+                            {% if last_date %}
+                                {{ last_date }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attendance breakdown -->
+                {% if att and att.rate is defined %}
+                <div class="modal-section">
+                    <div class="modal-label">Overall Attendance Breakdown</div>
+
+                    <div class="attendance-bar">
+                        {% if att.present %}
+                        <div class="ab-segment present" style="width: {{ att.present_pct }}%"
+                             title="Present: {{ att.present }}"></div>
+                        {% endif %}
+                        {% if att.late %}
+                        <div class="ab-segment late" style="width: {{ att.late_pct }}%"
+                             title="Late: {{ att.late }}"></div>
+                        {% endif %}
+                        {% if att.excused %}
+                        <div class="ab-segment excused" style="width: {{ att.excused_pct }}%"
+                             title="Excused: {{ att.excused }}"></div>
+                        {% endif %}
+                        {% if att.absent %}
+                        <div class="ab-segment absent" style="width: {{ att.absent_pct }}%"
+                             title="Absent: {{ att.absent }}"></div>
+                        {% endif %}
+                    </div>
+
+                    <div class="attendance-legend">
+                        <span class="legend-item"><span class="dot present"></span> Present {{ att.present }}</span>
+                        <span class="legend-item"><span class="dot late"></span> Late {{ att.late }}</span>
+                        <span class="legend-item"><span class="dot absent"></span> Absent {{ att.absent }}</span>
+                        <span class="legend-item"><span class="dot excused"></span> Excused {{ att.excused }}</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Rename -->
+                <div class="modal-section">
+                    <div class="modal-label">Rename Course</div>
+                    <form method="POST" class="modal-row">
+                        <input type="hidden" name="action" value="edit">
+                        <input type="hidden" name="old_name" value="{{ course }}">
+                        <input type="text" name="new_name" value="{{ course }}" required>
+                        <button type="submit" class="btn btn-ghost btn-sm">✏️ Save</button>
+                    </form>
+                </div>
+
+                <!-- Students -->
+                <div class="modal-section">
+                    <div class="modal-label">Enrolled Students ({{ students|length }})</div>
+                    {% if students %}
+                    <div class="student-chip-grid">
+                        {% for s in students %}
+                        <div class="student-chip">
+                            <div class="sc-avatar">{{ s[0] | upper }}</div>
+                            <span>{{ s }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="cc-empty-note">No students enrolled yet. Add some from the Students page.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Recent sessions -->
+                {% if course_recent.get(course) %}
+                <div class="modal-section">
+                    <div class="modal-label">Recent Sessions</div>
+                    <div class="session-history">
+                        {% for sess in course_recent[course] %}
+                        <div class="sh-row">
+                            <div class="sh-date">📅 {{ sess.date }}</div>
+                            <div class="sh-meta">
+                                <span class="tag green">✓ {{ sess.present }}</span>
+                                {% if sess.late %}<span class="tag yellow">⏰ {{ sess.late }}</span>{% endif %}
+                                {% if sess.absent %}<span class="tag red">✕ {{ sess.absent }}</span>{% endif %}
+                                {% if sess.excused %}<span class="tag blue">📝 {{ sess.excused }}</span>{% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer">
+                <a href="{{ url_for('attendance') }}?course={{ course }}"
+                   class="btn btn-primary btn-sm">✓ Take Attendance</a>
+                <a href="{{ url_for('students') }}"
+                   class="btn btn-ghost btn-sm">👥 Manage Students</a>
+
+                <form method="POST" style="margin-left: auto;"
+                      onsubmit="return confirm('Delete {{ course }} and all its records?');">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="course_name" value="{{ course }}">
+                    <button type="submit" class="btn btn-danger btn-sm">🗑️ Delete Course</button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+    {% else %}
+    <div class="empty">
+        <div class="empty-icon">📚</div>
+        <h3>No courses yet</h3>
+        <p>Add your first course above to get started.</p>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+function openCourseModal(id) {
+    document.getElementById('course-modal-' + id).classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+function closeCourseModal(e, id) {
+    if (e) e.stopPropagation();
+    document.getElementById('course-modal-' + id).classList.remove('active');
+    document.body.style.overflow = '';
+}
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+        document.body.style.overflow = '';
+    }
+});
+</script>
+
+{% endblock %}

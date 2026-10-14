@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Students{% endblock %}
+{% block page_title %}Students{% endblock %}
+
+{% block content %}
+
+{% set eyebrow = "👥 Roster" %}
+{% set title = "Manage Students" %}
+{% set subtitle = "You have <strong>" ~ (courses.values() | map('length') | sum) ~ "</strong> total student(s) across <strong>" ~ courses|length ~ "</strong> course(s). Click a card to view its roster." %}
+{% set primary_link = url_for('courses') %}
+{% set primary_text = "Manage Courses" %}
+{% set primary_icon = "📚" %}
+{% set secondary_link = url_for('attendance') %}
+{% set secondary_text = "Take Attendance" %}
+{% set secondary_icon = "✓" %}
+{% set emoji = "👥" %}
+{% include "_hero.html" %}
+
+<div class="tabs">
+    <a class="tab" href="{{ url_for('dashboard') }}">Overview</a>
+    <a class="tab" href="{{ url_for('courses') }}">Courses</a>
+    <a class="tab active" href="{{ url_for('students') }}">Students</a>
+    <a class="tab" href="{{ url_for('records') }}">Insights</a>
+</div>
+
+<!-- Add Student form -->
+<div class="form-card">
+    <h3>➕ Add Student</h3>
+    <form method="POST" class="row">
+        <input type="hidden" name="action" value="add">
+        <select name="course" required>
+            {% for course in courses.keys() %}
+            <option value="{{ course }}">{{ course }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="student_name" placeholder="Student full name" required>
+        <button type="submit" class="btn btn-primary">Add Student</button>
+    </form>
+</div>
+
+<div class="section-head">
+    <h2>All Classes</h2>
+    <span style="color: var(--text-dim); font-size: 13px;">{{ courses|length }} class(es)</span>
+</div>
+
+<!-- Collapsible course cards -->
+<div class="course-cards">
+    {% for course, students in courses.items() %}
+    <details class="course-card" data-course="{{ course }}">
+        <summary class="course-card-summary">
+            <div class="ccs-left">
+                <div class="ccs-icon">{{ course[0] | upper }}</div>
+                <div class="ccs-info">
+                    <div class="ccs-name">{{ course }}</div>
+                    <div class="ccs-meta">{{ students|length }} student(s)</div>
+                </div>
+            </div>
+
+            <div class="ccs-right">
+                <div class="avatar-stack">
+                    {% for s in students[:4] %}
+                    <div class="av">{{ s[0] | upper }}</div>
+                    {% endfor %}
+                    {% if students|length > 4 %}
+                    <div class="av av-more">+{{ students|length - 4 }}</div>
+                    {% endif %}
+                </div>
+                <span class="chevron">▾</span>
+            </div>
+        </summary>
+
+        <div class="course-card-body">
+            {% if students %}
+            <table class="data-table data-table-flush">
+                <thead>
+                    <tr>
+                        <th style="width: 55%;">Student</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div class="av" style="width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">
+                                    {{ student[0] | upper }}
+                                </div>
+                                <strong>{{ student }}</strong>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 8px;">
+                                <form method="POST" class="row" style="gap: 6px; margin: 0; flex: 1;">
+                                    <input type="hidden" name="action" value="edit">
+                                    <input type="hidden" name="course" value="{{ course }}">
+                                    <input type="hidden" name="old_name" value="{{ student }}">
+                                    <input type="text" name="new_name" value="{{ student }}" required
+                                           style="padding: 6px 10px; font-size: 12.5px;">
+                                    <button type="submit" class="btn btn-ghost btn-sm"
+                                            style="flex: 0 0 auto;">✏️ Rename</button>
+                                </form>
+                                <form method="POST" style="flex: 0 0 auto;"
+                                      onsubmit="return confirm('Remove {{ student }}?');">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="course" value="{{ course }}">
+                                    <input type="hidden" name="student_name" value="{{ student }}">
+                                    <button type="submit" class="btn btn-danger btn-sm">🗑️</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color: var(--text-dim); font-size: 13px; padding: 16px; text-align: center;">
+                No students enrolled yet. Add one above.
+            </p>
+            {% endif %}
+        </div>
+    </details>
+    {% else %}
+    <div class="empty">
+        <div class="empty-icon">👥</div>
+        <h3>No courses yet</h3>
+        <p>Create a course first to add students.</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}
