@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="theme-color" content="#0a0a0b">
+    <title>{% block title %}Attendance{% endblock %} | Attendly</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<!-- Mobile overlay (dims content behind open sidebar) -->
+<div class="mobile-overlay" id="mobileOverlay" onclick="closeMobileMenu()"></div>
+
+<!-- ===== SIDEBAR ===== -->
+<aside class="sidebar" id="sidebar">
+
+    <!-- Brand -->
+    <div class="sidebar-brand">
+        <div class="brand-mark">📍</div>
+        <div class="brand-text">
+            <div class="brand-name">Attendly</div>
+            <div class="brand-tag">Attendance System</div>
+        </div>
+        <button class="mobile-close" onclick="closeMobileMenu()" aria-label="Close menu">✕</button>
+    </div>
+
+    <!-- Quick search -->
+    <button class="sidebar-search" onclick="focusSearch()">
+        <span class="ss-icon">🔍</span>
+        <span class="ss-text">Quick search...</span>
+        <kbd class="ss-kbd">⌘F</kbd>
+    </button>
+
+    <!-- Navigation -->
+    <nav class="sidebar-nav">
+
+        <div class="nav-group">
+            <div class="nav-group-label">Focus</div>
+
+            <a href="{{ url_for('dashboard') }}" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}" onclick="closeMobileMenu()">
+                <span class="nav-icon nav-icon-purple">📊</span>
+                <span class="nav-text">Dashboard</span>
+            </a>
+
+            <a href="{{ url_for('attendance') }}" class="nav-item {% if active_page == 'attendance' %}active{% endif %}" onclick="closeMobileMenu()">
+                <span class="nav-icon nav-icon-green">✅</span>
+                <span class="nav-text">Take Attendance</span>
+            </a>
+
+            <a href="{{ url_for('records') }}" class="nav-item {% if active_page == 'records' %}active{% endif %}" onclick="closeMobileMenu()">
+                <span class="nav-icon nav-icon-blue">📅</span>
+                <span class="nav-text">Records</span>
+                {% if total_sessions %}
+                <span class="nav-count">{{ total_sessions }}</span>
+                {% endif %}
+            </a>
+        </div>
+
+        <div class="nav-group">
+            <div class="nav-group-label">Manage</div>
+
+            <a href="{{ url_for('courses') }}" class="nav-item {% if active_page == 'courses' %}active{% endif %}" onclick="closeMobileMenu()">
+                <span class="nav-icon nav-icon-yellow">📚</span>
+                <span class="nav-text">Courses</span>
+            </a>
+
+            <a href="{{ url_for('students') }}" class="nav-item {% if active_page == 'students' %}active{% endif %}" onclick="closeMobileMenu()">
+                <span class="nav-icon nav-icon-pink">👥</span>
+                <span class="nav-text">Students</span>
+            </a>
+        </div>
+
+        <div class="nav-group">
+            <div class="nav-group-label">
+                My Classes
+                <span class="nav-group-count">{{ courses|length }}</span>
+            </div>
+
+            <div class="class-list-sidebar">
+                {% for course, students in courses.items() %}
+                <a href="{{ url_for('attendance') }}?course={{ course }}" class="class-chip" onclick="closeMobileMenu()">
+                    <div class="cc-avatar">{{ course[0] | upper }}</div>
+                    <div class="cc-body">
+                        <div class="cc-name">{{ course }}</div>
+                        <div class="cc-count">{{ students|length }} student(s)</div>
+                    </div>
+                </a>
+                {% else %}
+                <div class="sidebar-empty">
+                    No classes yet
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </nav>
+
+    <!-- Footer: user -->
+    <div class="sidebar-footer">
+        <div class="sidebar-user">
+            <div class="su-avatar">
+                {{ session.instructor[0] | upper if session.instructor else 'T' }}
+            </div>
+            <div class="su-info">
+                <div class="su-name">
+                    {{ session.instructor | capitalize if session.instructor else 'Teacher' }}
+                </div>
+                <div class="su-role">Instructor</div>
+            </div>
+        </div>
+        <a href="{{ url_for('logout') }}" class="sidebar-logout" title="Logout">
+            ⎋
+        </a>
+    </div>
+
+</aside>
+
+<!-- ===== MAIN ===== -->
+<main class="main">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+
+        <div class="topbar-left">
+            <!-- Hamburger (mobile only) -->
+            <button class="hamburger" onclick="openMobileMenu()" aria-label="Open menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <h2 class="topbar-title">{% block page_title %}{% endblock %}</h2>
+        </div>
+
+        <div class="topbar-right">
+
+            <!-- SEARCH (desktop) -->
+            <div class="topbar-search-wrap">
+                <div class="topbar-search">
+                    🔍 <input type="text" id="topbarSearch" placeholder="Search..." autocomplete="off">
+                </div>
+                <div class="search-results" id="searchResults"></div>
+            </div>
+
+            <!-- SEARCH ICON (mobile only) -->
+            <button class="topbar-icon-btn mobile-search-btn" onclick="toggleMobileSearch()" title="Search">
+                🔍
+            </button>
+
+            <!-- NOTIFICATIONS -->
+            <div class="dropdown-wrap">
+                <button class="topbar-icon-btn" id="notifBtn" onclick="toggleDropdown('notifDropdown')" title="Notifications">
+                    🔔
+                    {% if unread_count > 0 %}<span class="dot-indicator"></span>{% endif %}
+                </button>
+
+                <div class="dropdown" id="notifDropdown">
+                    <div class="dropdown-header">
+                        <span>Notifications</span>
+                        {% if unread_count > 0 %}
+                        <span class="dropdown-count">{{ unread_count }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="dropdown-body">
+                        {% if notifications %}
+                            {% for n in notifications %}
+                            <a href="{{ n.url }}" class="notif-item">
+                                <div class="notif-icon notif-icon-{{ n.color or 'blue' }}">
+                                    {% if n.type == 'reminder' %}🗓{% else %}📅{% endif %}
+                                </div>
+                                <div class="notif-content">
+                                    <div class="notif-title">{{ n.title }}</div>
+                                    <div class="notif-sub">{{ n.sub }}</div>
+                                </div>
+                            </a>
+                            {% endfor %}
+                        {% else %}
+                            <div class="dropdown-empty">
+                                <div style="font-size: 22px; margin-bottom: 4px;">🔕</div>
+                                No notifications yet
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="dropdown-footer">
+                        <a href="{{ url_for('records') }}">View all records →</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PROFILE -->
+            <div class="dropdown-wrap">
+                <button class="user-chip" id="profileBtn" onclick="toggleDropdown('profileDropdown')">
+                    <div class="user-avatar">
+                        {{ session.instructor[0] | upper if session.instructor else 'T' }}
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name">
+                            {{ session.instructor | capitalize if session.instructor else 'Teacher' }}
+                        </span>
+                        <span class="user-role">Instructor</span>
+                    </div>
+                    <span class="chevron-mini">▾</span>
+                </button>
+
+                <div class="dropdown dropdown-right" id="profileDropdown">
+                    <div class="profile-header">
+                        <div class="ph-avatar">
+                            {{ session.instructor[0] | upper if session.instructor else 'T' }}
+                        </div>
+                        <div>
+                            <div class="ph-name">
+                                {{ session.instructor | capitalize if session.instructor else 'Teacher' }}
+                            </div>
+                            <div class="ph-email">teacher@attendly.local</div>
+                        </div>
+                    </div>
+
+                    <div class="dropdown-divider"></div>
+
+                    <a href="{{ url_for('dashboard') }}" class="dropdown-item">
+                        <span class="di-icon">📊</span> Dashboard
+                    </a>
+                    <a href="{{ url_for('courses') }}" class="dropdown-item">
+                        <span class="di-icon">📚</span> My Courses
+                    </a>
+                    <a href="{{ url_for('records') }}" class="dropdown-item">
+                        <span class="di-icon">📈</span> My Records
+                    </a>
+
+                    <div class="dropdown-divider"></div>
+
+                    <a href="#" class="dropdown-item" onclick="return false;">
+                        <span class="di-icon">⚙️</span> Settings
+                        <span class="di-badge">Soon</span>
+                    </a>
+                    <a href="#" class="dropdown-item" onclick="return false;">
+                        <span class="di-icon">❓</span> Help
+                    </a>
+
+                    <div class="dropdown-divider"></div>
+
+                    <a href="{{ url_for('logout') }}" class="dropdown-item danger">
+                        <span class="di-icon">⎋</span> Sign out
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- Mobile search panel -->
+    <div class="mobile-search-panel" id="mobileSearchPanel">
+        <div class="topbar-search" style="width: 100%;">
+            🔍 <input type="text" id="mobileSearchInput" placeholder="Search courses, students..." autocomplete="off">
+        </div>
+        <div class="search-results" id="mobileSearchResults" style="position: static; display: none; margin-top: 8px;"></div>
+    </div>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="flash">{{ messages[0] }}</div>
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+</main>
+
+<!-- Search index -->
+<script id="search-data" type="application/json">
+{{ search_index | tojson }}
+</script>
+
+<script>
+/* ===== MOBILE MENU ===== */
+function openMobileMenu() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('mobileOverlay').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeMobileMenu() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('mobileOverlay').classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+/* ===== MOBILE SEARCH ===== */
+function toggleMobileSearch() {
+    const panel = document.getElementById('mobileSearchPanel');
+    const isOpen = panel.classList.contains('active');
+    panel.classList.toggle('active');
+    if (!isOpen) {
+        setTimeout(() => document.getElementById('mobileSearchInput').focus(), 100);
+    }
+}
+
+function focusSearch() {
+    if (window.innerWidth <= 780) {
+        closeMobileMenu();
+        toggleMobileSearch();
+    } else {
+        document.getElementById('topbarSearch').focus();
+    }
+}
+
+/* ===== DROPDOWN TOGGLE ===== */
+function toggleDropdown(id) {
+    const el = document.getElementById(id);
+    const isOpen = el.classList.contains('active');
+
+    document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('active'));
+    if (!isOpen) el.classList.add('active');
+}
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.dropdown-wrap') && !e.target.closest('.topbar-search-wrap')) {
+        document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('active'));
+        const sr = document.getElementById('searchResults');
+        if (sr) sr.classList.remove('active');
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('active'));
+        const sr = document.getElementById('searchResults');
+        if (sr) sr.classList.remove('active');
+        closeMobileMenu();
+        const msp = document.getElementById('mobileSearchPanel');
+        if (msp) msp.classList.remove('active');
+    }
+});
+
+/* ===== SEARCH ===== */
+const searchIndex = JSON.parse(document.getElementById('search-data').textContent);
+
+function bindSearch(inputEl, resultsEl) {
+    if (!inputEl || !resultsEl) return;
+
+    inputEl.addEventListener('input', () => {
+        const q = inputEl.value.trim().toLowerCase();
+
+        if (!q) {
+            resultsEl.classList.remove('active');
+            if (resultsEl.id === 'mobileSearchResults') resultsEl.style.display = 'none';
+            return;
+        }
+
+        const matches = searchIndex.filter(item =>
+            item.label.toLowerCase().includes(q) ||
+            item.sub.toLowerCase().includes(q)
+        ).slice(0, 8);
+
+        if (matches.length === 0) {
+            resultsEl.innerHTML = `
+                <div class="search-empty">
+                    No matches for "<strong>${inputEl.value}</strong>"
+                </div>
+            `;
+        } else {
+            resultsEl.innerHTML = matches.map(m => `
+                <a href="${m.url}" class="search-item">
+                    <div class="si-icon">${m.icon}</div>
+                    <div class="si-info">
+                        <div class="si-label">${m.label}</div>
+                        <div class="si-sub">${m.sub}</div>
+                    </div>
+                    <span class="si-type">${m.type}</span>
+                </a>
+            `).join('');
+        }
+
+        resultsEl.classList.add('active');
+        if (resultsEl.id === 'mobileSearchResults') resultsEl.style.display = 'block';
+    });
+
+    inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const first = resultsEl.querySelector('.search-item');
+            if (first) window.location.href = first.href;
+        }
+    });
+}
+
+bindSearch(document.getElementById('topbarSearch'), document.getElementById('searchResults'));
+bindSearch(document.getElementById('mobileSearchInput'), document.getElementById('mobileSearchResults'));
+
+/* ⌘F / Ctrl+F focuses search */
+document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault();
+        const target = window.innerWidth <= 780
+            ? document.getElementById('mobileSearchInput')
+            : document.getElementById('topbarSearch');
+        if (window.innerWidth <= 780) toggleMobileSearch();
+        setTimeout(() => target.focus(), 100);
+    }
+});
+
+/* Auto-close mobile menu on resize to desktop */
+window.addEventListener('resize', () => {
+    if (window.innerWidth > 780) {
+        closeMobileMenu();
+        const msp = document.getElementById('mobileSearchPanel');
+        if (msp) msp.classList.remove('active');
+    }
+});
+</script>
+
+</body>
+</html>
